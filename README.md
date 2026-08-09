@@ -1,6 +1,6 @@
 # NINE as in *Plan 9 from User Space*
 
-*A no-frills guide to installing Acme (plan9port) on Debian — and living in it with everything default.*
+*A no-frills guide to installing [Acme](http://acme.cat-v.org/) (plan9port) on Debian — and living in it with everything default.*
 
 Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like terminal environment) and [`COBE`](https://github.com/matteogiorgi/cobe) (a VS Code environment): **NINE is the just-Acme, zero-config path.** No dotfiles, no theming, no keybindings to memorize — in Acme you build your commands in the text itself. This repo is *not* a configuration; it is the **knowledge** of how to install Acme correctly on Debian, with the sharp edges annotated. It automates nothing that it does not first explain.
 
