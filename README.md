@@ -70,14 +70,16 @@ export PLAN9="$HOME/plan9"
 
 ### 4. Expose the binaries — symlink, do not pollute `PATH`
 
-plan9port ships ~150 binaries in `$PLAN9/bin`, and many of them **shadow GNU tools**: `cat`, `sed`, `grep`, `ls`, `awk`, `tr`, `sort`, and more. Appending `$PLAN9/bin` to `PATH` would drag every one of those names into your namespace and tab-completion, with a standing risk that a script picks up the Plan 9 version. Instead, symlink only the handful you invoke directly:
+plan9port ships ~150 binaries in `$PLAN9/bin`, and many of them **shadow GNU tools**: `cat`, `sed`, `grep`, `ls`, `awk`, `tr`, `sort`, and more. Appending `$PLAN9/bin` to `PATH` would drag every one of those names into your namespace and tab-completion, with a standing risk that a script picks up the Plan 9 version. Instead, symlink only a curated handful — the ones you type, plus a couple of internal helpers Acme needs at runtime:
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-for b in 9 acme sam 9term win fontsrv plumb; do
+for b in 9 acme sam 9term win fontsrv plumb 9pserve devdraw; do
     ln -sf "$PLAN9/bin/$b" "$HOME/.local/bin/$b"
 done
 ```
+
+Two of those, `9pserve` and `devdraw`, you never type yourself. They are internal helpers that Acme execs by bare name (`execlp("9pserve", ...)`, `execl("devdraw", ...)`) to post its control service and to talk to X11. plan9port resolves bare names by searching `$PATH`, and since this repo deliberately keeps `$PLAN9/bin` off `PATH`, they have to be symlinked here too, purely so that search succeeds. Skip either and Acme fails at startup — without `devdraw`: `exec devdraw: No such file or directory` followed by `can't open display: muxrpc: unexpected eof`; without `9pserve`: it draws its window, then `exec 9pserve: No such file or directory` followed by `can't post service: 9pserve failed`.
 
 On Debian, `~/.profile` already prepends `~/.local/bin` to `PATH` when that directory exists, so there is usually nothing else to do. Verify with `echo $PATH`; if `~/.local/bin` is missing from it, add it yourself:
 
@@ -152,8 +154,10 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/9term \
       "$HOME"/.local/bin/win \
       "$HOME"/.local/bin/fontsrv \
-      "$HOME"/.local/bin/plumb
-# then remove the two blocks marked "(added by nine)" from ~/.profile
+      "$HOME"/.local/bin/plumb \
+      "$HOME"/.local/bin/9pserve \
+      "$HOME"/.local/bin/devdraw
+# then remove the blocks marked "(added by nine)" from ~/.profile
 ```
 
 
