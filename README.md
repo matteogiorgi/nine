@@ -2,7 +2,7 @@
 
 *A no-frills guide to installing Acme (plan9port) on Debian — and living in it with everything default.*
 
-Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like terminal environment) and [`COBE`](https://github.com/matteogiorgi/cobe) (a VS Code environment): **NINE is the just Acme, zero config path.** No dotfiles, no theming, no keybindings to memorize — in Acme you build your commands in the text itself. This repo is *not* a configuration; it is the **knowledge** of how to install Acme correctly on Debian, with the sharp edges annotated. It automates nothing that it does not first explain.
+Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like terminal environment) and [`COBE`](https://github.com/matteogiorgi/cobe) (a VS Code environment): **NINE is the just-Acme, zero-config path.** No dotfiles, no theming, no keybindings to memorize — in Acme you build your commands in the text itself. This repo is *not* a configuration; it is the **knowledge** of how to install Acme correctly on Debian, with the sharp edges annotated. It automates nothing that it does not first explain.
 
 
 
@@ -11,7 +11,7 @@ Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like t
 
 - Acme is part of **plan9port** (Plan 9 from User Space). There is **no** `plan9port` package in Debian's repositories, so the canonical route — the one 9fans themselves document — is to **build from source**. It is short and clean, just not a one-liner.
 - Acme is deliberately **config-free**: no rc files, no themes, no plugin system. You change font and tabstop with flags, and that is the extent of it. That is exactly why it fits an "everything default" project: there is nothing to configure.
-- The only real work, then, is *installing* it right: dependencies, build, environment.  Once that is done, you are living on pure defaults.
+- The only real work, then, is *installing* it right: dependencies, build, environment. Once that is done, you are living on pure defaults.
 
 
 
@@ -53,7 +53,7 @@ cd "$HOME/plan9"
 ./INSTALL
 ```
 
-The first build takes a few minutes. If it stops complaining about a missing header, install the named `-dev` package and re-run `./INSTALL` — it resumes rather than restarting from scratch.
+The first build takes a few minutes. If it stops, complaining about a missing header, install the named `-dev` package and re-run `./INSTALL` — it resumes rather than restarting from scratch.
 
 
 ### 3. Environment (`$PLAN9` is required)
@@ -79,7 +79,14 @@ for b in 9 acme sam 9term win fontsrv plumb; do
 done
 ```
 
-On Debian, `~/.profile` already prepends `~/.local/bin` to `PATH` when that directory exists, so there is usually nothing else to do. Everything you did *not* symlink is still reachable through the `9` wrapper, without touching `PATH`:
+On Debian, `~/.profile` already prepends `~/.local/bin` to `PATH` when that directory exists, so there is usually nothing else to do. Verify with `echo $PATH`; if `~/.local/bin` is missing from it, add it yourself:
+
+```sh
+# in ~/.profile
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Everything you did *not* symlink is still reachable through the `9` wrapper, without touching `PATH`:
 
 ```sh
 9 grep ...   # the Plan 9 grep, explicitly
@@ -128,16 +135,7 @@ The exact mount path depends on your namespace setup; see `man fontsrv`. For the
 
 ## Other distributions
 
-Only the dependency names change; steps 2–5 are identical. Note that the automatic `~/.local/bin` on `PATH` is a Debian default — on other distros, make sure that directory is on your `PATH` yourself.
-
-| Distro          | Dependencies                                                          |
-| --------------- | -------------------------------------------------------------------- |
-| Debian / Ubuntu | `gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev`         |
-| Fedora          | `gcc git libX11-devel libXt-devel libXext-devel fontconfig-devel`    |
-| Arch            | `base-devel git libx11 libxt libxext fontconfig`                     |
-| openSUSE        | `gcc git libX11-devel libXt-devel libXext-devel fontconfig-devel`    |
-| Alpine          | `gcc git libx11-dev libxt-dev libxext-dev fontconfig-dev`            |
-| Void            | `gcc git libX11-devel libXt-devel libXext-devel fontconfig-devel`    |
+Only the dependency names change; steps 2–5 are identical. The `apt` list in step 1 (`gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev`) is the example — translate it to your package manager (`dnf`, `pacman`, `zypper`, `apk`, ...): same six things (a C compiler, git, and dev headers for X11, Xt, Xext, fontconfig), under whatever names your distro gives them. Note that the automatic `~/.local/bin` on `PATH` is a Debian default — on other distros, make sure that directory is on your `PATH` yourself.
 
 
 
@@ -155,7 +153,7 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/win \
       "$HOME"/.local/bin/fontsrv \
       "$HOME"/.local/bin/plumb
-# then remove the `export PLAN9=...` line from ~/.profile
+# then remove the two blocks marked "(added by nine)" from ~/.profile
 ```
 
 

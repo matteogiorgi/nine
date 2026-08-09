@@ -36,7 +36,7 @@ act() {
 check_deps() {
     if ! command -v dpkg-query >/dev/null 2>&1; then
         warn "dpkg-query not found -- cannot verify dependencies (non-Debian?)"
-        warn "make sure these are installed: $DEPS"
+        warn "translate to your package manager: $DEPS (apt names, see README)"
         return
     fi
     missing=""
@@ -108,14 +108,23 @@ link_bins() {
     done
 }
 
-# ---- PATH sanity check (Debian's ~/.profile adds ~/.local/bin at login) ----
-check_path() {
+# ---- 6. PATH: append to $PROFILE once if $BIN_DIR isn't referenced there yet ----
+ensure_path() {
+    if [ -f "$PROFILE" ] && grep -q '\.local/bin' "$PROFILE"; then
+        info "$BIN_DIR already referenced in $PROFILE -- leaving it"
+    elif [ "$dry_run" -eq 1 ]; then
+        info "[dry-run] would append 'export PATH=\"\$HOME/.local/bin:\$PATH\"' to $PROFILE"
+    else
+        printf '\n# ~/.local/bin on PATH (added by nine)\nexport PATH="$HOME/.local/bin:$PATH"\n' >>"$PROFILE"
+        info "added $BIN_DIR to PATH in $PROFILE"
+    fi
+
     case ":$PATH:" in
         *":$BIN_DIR:"*)
-            info "$BIN_DIR is on PATH"
+            info "$BIN_DIR is on current PATH"
             ;;
         *)
-            warn "$BIN_DIR is not on your current PATH"
+            warn "$BIN_DIR is not on your current PATH yet"
             warn "log out/in, or run:  . $PROFILE"
             ;;
     esac
@@ -148,7 +157,8 @@ main() {
     ensure_profile
     msg "5. linking binaries into $BIN_DIR"
     link_bins
-    check_path
+    msg "6. PATH"
+    ensure_path
     msg ""
     msg "done. start Acme with:  acme &"
     msg "first thing inside: type 'Newcol', select it, click it with the MIDDLE button."
