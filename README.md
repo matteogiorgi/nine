@@ -165,4 +165,4 @@ rm -f "$HOME"/.local/bin/9 \
 
 ## The one thing to read
 
-Acme makes little sense until you have read Rob Pike's short paper *"Acme: A User Interface for Programmers."* It is ten enjoyable pages, and after them every click lands where you expect. That paper is the real manual — this repo just gets you to the door.
+Acme makes little sense until you have read Rob Pike's short paper *[Acme: A User Interface for Programmers](https://www.usenix.org/legacy/publications/library/proceedings/sf94/full_papers/pike.pdf)*. It is ten enjoyable pages, and after them every click lands where you expect. That paper is the real manual — this repo just gets you to the door.
