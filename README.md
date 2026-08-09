@@ -9,7 +9,7 @@ Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like t
 
 ## Why this exists (and why there is no `apt install`)
 
-- Acme is part of **plan9port** (Plan 9 from User Space). There is **no** `plan9port` package in Debian's repositories, so the canonical route — the one 9fans themselves document — is to **build from source**. It is short and clean, just not a one-liner.
+- Acme is part of [**plan9port**](https://9fans.github.io/plan9port/) (Plan 9 from User Space). There is **no** `plan9port` package in Debian's repositories, so the canonical route — the one 9fans themselves document — is to **build from source**. It is short and clean, just not a one-liner.
 - Acme is deliberately **config-free**: no rc files, no themes, no plugin system. You change font and tabstop with flags, and that is the extent of it. That is exactly why it fits an "everything default" project: there is nothing to configure.
 - The only real work, then, is *installing* it right: dependencies, build, environment. Once that is done, you are living on pure defaults.
 
