@@ -10,7 +10,7 @@ BIN_DIR="$HOME/.local/bin"
 PROFILE="$HOME/.profile"
 REPO="https://github.com/9fans/plan9port"
 DEPS="gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev"
-LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw"
+LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse"
 
 dry_run=0
 
@@ -149,15 +149,13 @@ main() {
     msg ""
     msg "1. checking build dependencies"
     check_deps
-    msg "2. fetching source"
+    msg "2. fetching and building source"
     clone_plan9
-    msg "3. building"
     build_plan9
-    msg "4. environment"
+    msg "3. environment"
     ensure_profile
-    msg "5. linking binaries into $BIN_DIR"
+    msg "4. binaries and PATH"
     link_bins
-    msg "6. PATH"
     ensure_path
     msg ""
     msg "done. start Acme with:  acme &"

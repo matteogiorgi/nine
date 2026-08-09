@@ -70,16 +70,19 @@ export PLAN9="$HOME/plan9"
 
 ### 4. Expose the binaries — symlink, do not pollute `PATH`
 
-plan9port ships ~150 binaries in `$PLAN9/bin`, and many of them **shadow GNU tools**: `cat`, `sed`, `grep`, `ls`, `awk`, `tr`, `sort`, and more. Appending `$PLAN9/bin` to `PATH` would drag every one of those names into your namespace and tab-completion, with a standing risk that a script picks up the Plan 9 version. Instead, symlink only a curated handful — the ones you type, plus a couple of internal helpers Acme needs at runtime:
+plan9port ships ~150 binaries in `$PLAN9/bin`, and many of them **shadow GNU tools**: `cat`, `sed`, `grep`, `ls`, `awk`, `tr`, `sort`, and more. Appending `$PLAN9/bin` to `PATH` would drag every one of those names into your namespace and tab-completion, with a standing risk that a script picks up the Plan 9 version. Instead, symlink only a curated handful — the ones you type, plus a few internal helpers other plan9port programs need at runtime:
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-for b in 9 acme sam 9term win fontsrv plumb 9pserve devdraw; do
+for b in 9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse; do
     ln -sf "$PLAN9/bin/$b" "$HOME/.local/bin/$b"
 done
 ```
 
-Two of those, `9pserve` and `devdraw`, you never type yourself. They are internal helpers that Acme execs by bare name (`execlp("9pserve", ...)`, `execl("devdraw", ...)`) to post its control service and to talk to X11. plan9port resolves bare names by searching `$PATH`, and since this repo deliberately keeps `$PLAN9/bin` off `PATH`, they have to be symlinked here too, purely so that search succeeds. Skip either and Acme fails at startup — without `devdraw`: `exec devdraw: No such file or directory` followed by `can't open display: muxrpc: unexpected eof`; without `9pserve`: it draws its window, then `exec 9pserve: No such file or directory` followed by `can't post service: 9pserve failed`.
+Three of those you never type yourself — they are internal helpers other plan9port programs exec by bare name, which resolves through `$PATH`, and since this repo deliberately keeps `$PLAN9/bin` off `PATH`, they have to be symlinked here too, purely so that search succeeds:
+
+- `9pserve` and `devdraw` are needed for Acme to start at all. Skip either and it fails at startup — without `devdraw`: `exec devdraw: No such file or directory` followed by `can't open display: muxrpc: unexpected eof`; without `9pserve`: it draws its window, then `exec 9pserve: No such file or directory` followed by `can't post service: 9pserve failed`.
+- `9pfuse` is only needed for the optional host-font route in the Fonts section below — it mounts `fontsrv`'s output through FUSE. Baseline Acme never touches it.
 
 On Debian, `~/.profile` already prepends `~/.local/bin` to `PATH` when that directory exists, so there is usually nothing else to do. Verify with `echo $PATH`; if `~/.local/bin` is missing from it, add it yourself:
 
@@ -91,9 +94,9 @@ export PATH="$HOME/.local/bin:$PATH"
 Everything you did *not* symlink is still reachable through the `9` wrapper, without touching `PATH`:
 
 ```sh
-9 grep ...   # the Plan 9 grep, explicitly
-9 mk         # Plan 9 make
-9 sed ...    # the Plan 9 sed
+9 grep ...    # the Plan 9 grep, explicitly
+9 mk          # Plan 9 make
+9 sed ...     # the Plan 9 sed
 ```
 
 This keeps your GNU/POSIX tools — and any dispatcher scripts that rely on them — completely untouched.
@@ -103,8 +106,8 @@ This keeps your GNU/POSIX tools — and any dispatcher scripts that rely on them
 
 ```sh
 . ~/.profile
-command -v acme        # -> ~/.local/bin/acme
-echo "$PLAN9"          # -> /home/you/plan9
+command -v acme    # -> ~/.local/bin/acme
+echo "$PLAN9"      # -> /home/you/plan9
 ```
 
 
@@ -123,14 +126,40 @@ acme &
 
 ## Fonts (optional — tune later, not first)
 
-Acme's default bitmap Lucida is tiny on dense screens. To use nicer or larger fonts, run `fontsrv` (which exposes host fonts to Acme through a 9P namespace) and point Acme at a font under its tree:
+Acme's default bitmap Lucida is tiny on dense screens, and proportional besides. Two ways to change it, in increasing order of effort. For the very first run, though, launch plain `acme &` and see how it feels — sitting on the raw defaults is the entire point of this project. Reach for either of the below only if the default is unusable.
+
+**Built-in, no extra moving parts.** plan9port ships its own bitmap fonts directly under `$PLAN9/font/` — no `fontsrv`, no mounting, nothing to go wrong. Same monospace family, two sizes:
 
 ```sh
-fontsrv &
-acme -f /mnt/font/GoMono/13a/font &
+acme -f "$PLAN9/font/pelm/unicode.9.font" &    # monospace, readable
+acme -f "$PLAN9/font/pelm/unicode.8.font" &    # monospace, tighter
 ```
 
-The exact mount path depends on your namespace setup; see `man fontsrv`. For the very first run, launch plain `acme &` and see how it feels — sitting on the raw defaults is the entire point of this project. Reach for `fontsrv` only if the default is unusable.
+`pelm` ships the same family at 8, 9, 10, 12, and 16. Browse `$PLAN9/font/` for other styles entirely — `lucsans`, `fixed`, `misc`, `times`, `palatino`, and several CJK sets — but most are either proportional or the same blocky look as classic X11 terminal fonts.
+
+**A modern host font, through `fontsrv`.** To use a TrueType/OpenType font already installed on your system instead (`fc-list :spacing=mono family` shows what you have — Cascadia, Go Mono, DejaVu Sans Mono, and the like), `fontsrv` bridges it into a 9P namespace Acme can read from. Three things that aren't obvious from `-h`:
+
+- `fontsrv` alone posts a service but mounts nothing; you need `-m <mtpt>`.
+- `/mnt` is root-owned on Debian — not writable by you. Use a directory under `$HOME`.
+- The mount goes through `9pfuse` (symlinked in step 4 for exactly this), which needs FUSE working on your system — usually already the case; `command -v fusermount` to check.
+
+```sh
+mkdir -p "$HOME/lib/font"
+fontsrv -m "$HOME/lib/font" &
+ls "$HOME/lib/font"
+acme -f "$HOME/lib/font/CascadiaMono-Roman/13a/font" &
+```
+
+Check that `ls` first — names come out styled, not just by family: that's why the example above says `CascadiaMono-Roman`, not `CascadiaMono`.
+
+**Making a font choice permanent.** Acme itself never remembers one — no config file, by design, and `nine` doesn't pick one for you either — the default stays untouched unless you type `-f`. If you want a choice to stick, add the alias yourself, in `~/.bashrc` (never `~/.profile`: this is shell convenience, not environment — see step 3):
+
+```sh
+# in ~/.bashrc
+alias acme='acme -f "$PLAN9/font/pelm/unicode.8.font"'
+```
+
+This only overrides the default in interactive shells that source `~/.bashrc` — if something else execs `acme` directly (a window-manager launcher, a script), it won't see the alias.
 
 
 
@@ -156,7 +185,8 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/fontsrv \
       "$HOME"/.local/bin/plumb \
       "$HOME"/.local/bin/9pserve \
-      "$HOME"/.local/bin/devdraw
+      "$HOME"/.local/bin/devdraw \
+      "$HOME"/.local/bin/9pfuse
 # then remove the blocks marked "(added by nine)" from ~/.profile
 ```
 
