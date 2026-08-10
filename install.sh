@@ -7,6 +7,7 @@ set -eu
 
 PLAN9_DIR="$HOME/plan9"
 BIN_DIR="$HOME/.local/bin"
+DESKTOP_DIR="$HOME/.local/share/applications"
 PROFILE="$HOME/.profile"
 REPO="https://github.com/9fans/plan9port"
 DEPS="gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev"
@@ -193,6 +194,31 @@ EOF
     info "wrote $BIN_DIR/nine"
 }
 
+# ---- desktop (optional): write a menu entry to $DESKTOP_DIR once, never overwrite ----
+# unquoted heredoc, unlike ensure_launcher's: .desktop files don't expand
+# variables, so $BIN_DIR must be resolved to a literal path right now.
+ensure_desktop() {
+    if [ -f "$DESKTOP_DIR/acme.desktop" ]; then
+        info "acme.desktop already present in $DESKTOP_DIR -- leaving it"
+        return
+    fi
+    if [ "$dry_run" -eq 1 ]; then
+        info "[dry-run] would write $DESKTOP_DIR/acme.desktop"
+        return
+    fi
+    mkdir -p "$DESKTOP_DIR"
+    cat >"$DESKTOP_DIR/acme.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Acme
+Comment=Plan 9 text editor (plan9port)
+Exec=$BIN_DIR/nine %F
+Terminal=false
+Categories=Utility;TextEditor;
+EOF
+    info "wrote $DESKTOP_DIR/acme.desktop"
+}
+
 usage() {
     cat <<EOF
 nine -- install Acme (plan9port) on Debian, everything default.
@@ -220,8 +246,9 @@ main() {
     msg "4. binaries and PATH"
     link_bins
     ensure_path
-    msg "font (optional, see README)"
+    msg "extras (optional, see README)"
     ensure_launcher
+    ensure_desktop
     msg ""
     msg "done. start Acme with:  acme &"
     msg "  (or:  nine &  -- same, with a nicer font; see README)"

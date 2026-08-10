@@ -219,6 +219,20 @@ nine &
 
 Edit `~/.local/bin/nine` to change the font, the size, or the fallback — `nine` writes the file once and never overwrites an existing one, so your edits stick.
 
+**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
+
+```
+[Desktop Entry]
+Type=Application
+Name=Acme
+Comment=Plan 9 text editor (plan9port)
+Exec=/home/you/.local/bin/nine %F
+Terminal=false
+Categories=Utility;TextEditor;
+```
+
+Note the absolute path in `Exec=`: unlike `~/.profile`, `~/.bashrc`, or `nine` itself, `.desktop` files don't expand `$HOME` or any other variable — `nine` fills it in with the real path when it writes the file. If the entry doesn't show up in your menu right away, reopen the menu or log back in; same idempotent, write-once, never-overwrite rule as everything else `nine` creates.
+
 
 
 
@@ -247,8 +261,8 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/9pfuse \
       "$HOME"/.local/bin/samterm \
       "$HOME"/.local/bin/nine
-# then remove the blocks marked "(added by nine)"
-# from ~/.profile
+rm -f "$HOME/.local/share/applications/acme.desktop"
+# then remove the blocks marked "(added by nine)" from ~/.profile
 ```
 
 
