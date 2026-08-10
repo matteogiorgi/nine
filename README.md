@@ -137,29 +137,86 @@ acme -f "$PLAN9/font/pelm/unicode.8.font" &    # monospace, tighter
 
 `pelm` ships the same family at 8, 9, 10, 12, and 16. Browse `$PLAN9/font/` for other styles entirely — `lucsans`, `fixed`, `misc`, `times`, `palatino`, and several CJK sets — but most are either proportional or the same blocky look as classic X11 terminal fonts.
 
-**A modern host font, through `fontsrv`.** To use a TrueType/OpenType font already installed on your system instead (`fc-list :spacing=mono family` shows what you have — Cascadia, Go Mono, DejaVu Sans Mono, and the like), `fontsrv` bridges it into a 9P namespace Acme can read from. Three things that aren't obvious from `-h`:
+**A modern host font, through `fontsrv`.** To use a TrueType/OpenType font already installed on your system instead of a built-in one, `fontsrv` bridges it into a 9P namespace Acme can read from. Finding the font's name first helps: `fc-list :spacing=mono family` lists what you have (Cascadia, Go Mono, DejaVu Sans Mono, and the like) — but `fc-list` comes from the `fontconfig` package specifically, not the `libfontconfig1-dev` headers from step 1, so it isn't guaranteed to be there; `command -v fc-list` to check, `sudo apt install fontconfig` if not. Three things about `fontsrv` itself that aren't obvious from `-h`:
 
 - `fontsrv` alone posts a service but mounts nothing; you need `-m <mtpt>`.
 - `/mnt` is root-owned on Debian — not writable by you. Use a directory under `$HOME`.
-- The mount goes through `9pfuse` (symlinked in step 4 for exactly this), which needs FUSE working on your system — usually already the case; `command -v fusermount` to check.
+- The mount goes through `9pfuse` (symlinked in step 4 for exactly this), which needs FUSE working on your system — usually already the case; `command -v fusermount` to check, `sudo apt install fuse3` if not.
 
 ```sh
 mkdir -p "$HOME/lib/font"
 fontsrv -m "$HOME/lib/font" &
 ls "$HOME/lib/font"
-acme -f "$HOME/lib/font/CascadiaMono-Roman/13a/font" &
+acme -f "$HOME/lib/font/CascadiaMono-Roman/10a/font" &
 ```
 
-Check that `ls` first — names come out styled, not just by family: that's why the example above says `CascadiaMono-Roman`, not `CascadiaMono`.
+Check that `ls` first — names come out styled, not just by family: that's why the example above says `CascadiaMono-Roman`, not `CascadiaMono`. If it isn't there at all, Cascadia itself is missing — `sudo apt install fonts-cascadia-code`; any other monospace TrueType font works the same way.
 
-**Making a font choice permanent.** Acme itself never remembers one — no config file, by design. `nine` instead adds a small alias to `~/.bashrc` (never `~/.profile`: this is shell convenience, not environment — see step 3):
+**Making a font choice permanent.** Acme itself never remembers one — no config file, by design. `nine` instead writes a small launcher — also named `nine`, distinct from the `9` wrapper from step 4 despite the similar name — to `~/.local/bin/` (not an alias, so it works no matter what invokes it, not just interactive shells that source `~/.bashrc`):
 
 ```sh
-# in ~/.bashrc
-alias acme='acme -f "$PLAN9/font/pelm/unicode.8.font"'
+#!/bin/sh
+# nine -- launch Acme, preferring a modern host font via fontsrv,
+# falling back to a built-in monospace (added by nine)
+set -eu
+
+FONT_MNT="$HOME/lib/font"
+FALLBACK="$PLAN9/font/pelm/unicode.8.font"
+SIZE=10a
+missing=""
+
+mounted() { mountpoint -q "$FONT_MNT" 2>/dev/null; }
+
+if ! mounted; then
+    mkdir -p "$FONT_MNT"
+    fontsrv -m "$FONT_MNT" &
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        mounted && break
+        sleep 0.3
+    done
+fi
+
+if mounted; then
+    # 1: a specific modern font, if fontsrv exposes it
+    if [ -e "$FONT_MNT/CascadiaMono-Roman/$SIZE/font" ]; then
+        exec acme -f "$FONT_MNT/CascadiaMono-Roman/$SIZE/font" "$@"
+    fi
+    missing="$missing fonts-cascadia-code"
+
+    # 2: whatever the system calls "monospace", if we can resolve and find it
+    if command -v fc-match >/dev/null 2>&1; then
+        family=$(fc-match monospace -f '%{family}' 2>/dev/null | tr -d ' ')
+        if [ -n "$family" ] && [ -e "$FONT_MNT/$family/$SIZE/font" ]; then
+            echo "nine: CascadiaMono-Roman not found, using $family instead (sudo apt install fonts-cascadia-code for it)" >&2
+            exec acme -f "$FONT_MNT/$family/$SIZE/font" "$@"
+        fi
+    else
+        missing="$missing fontconfig"
+    fi
+else
+    missing="$missing fuse3"
+fi
+
+# 3: always works
+if [ -n "$missing" ]; then
+    printf 'nine: using the built-in font. For a nicer one, try:\n\n    sudo apt install %s\n\n' "${missing# }" >&2
+fi
+exec acme -f "$FALLBACK" "$@"
 ```
 
-This only overrides the default in interactive shells that source `~/.bashrc` — if something else execs `acme` directly (a window-manager launcher, a script), it won't see the alias. Edit or delete the line to change or drop the choice.
+On first run it checks whether `$HOME/lib/font` is already mounted and, if not, mounts `fontsrv` there (waiting for the mount rather than racing `acme` against it — if it never mounts, that's FUSE not working, see above). Then it tries, in order:
+
+1. `CascadiaMono-Roman` specifically — needs the `fonts-cascadia-code` package.
+2. Failing that, whatever `fc-match` says your system's generic `monospace` resolves to, if that lookup is available (needs `fontconfig`, see above) and `fontsrv` exposes a font under that exact name.
+3. Failing that too, the built-in `pelm/unicode.8.font`, which needs nothing beyond plan9port itself and therefore never fails.
+
+Whenever it lands on anything but its first choice, it says so on stderr — and where relevant, exactly what to `apt install`, batched into one line the same way step 1 reports missing build dependencies. On later runs, since the mount is already there, it skips straight to these checks. Launch it in place of `acme`:
+
+```sh
+nine &
+```
+
+Edit `~/.local/bin/nine` to change the font, the size, or the fallback — `nine` writes the file once and never overwrites an existing one, so your edits stick.
 
 
 
@@ -186,9 +243,10 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/plumb \
       "$HOME"/.local/bin/9pserve \
       "$HOME"/.local/bin/devdraw \
-      "$HOME"/.local/bin/9pfuse
+      "$HOME"/.local/bin/9pfuse \
+      "$HOME"/.local/bin/nine
 # then remove the blocks marked "(added by nine)"
-# from ~/.profile and ~/.bashrc
+# from ~/.profile
 ```
 
 

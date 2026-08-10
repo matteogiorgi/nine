@@ -8,7 +8,6 @@ set -eu
 PLAN9_DIR="$HOME/plan9"
 BIN_DIR="$HOME/.local/bin"
 PROFILE="$HOME/.profile"
-BASHRC="$HOME/.bashrc"
 REPO="https://github.com/9fans/plan9port"
 DEPS="gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev"
 LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse"
@@ -131,18 +130,67 @@ ensure_path() {
     esac
 }
 
-# ---- font (optional): append an acme alias to $BASHRC once, never duplicate ----
-ensure_bashrc() {
-    if [ -f "$BASHRC" ] && grep -q 'alias acme=' "$BASHRC"; then
-        info "acme alias already present in $BASHRC -- leaving it"
+# ---- font (optional): write the nine launcher to $BIN_DIR once, never overwrite ----
+ensure_launcher() {
+    if [ -x "$BIN_DIR/nine" ]; then
+        info "nine launcher already present in $BIN_DIR -- leaving it"
         return
     fi
     if [ "$dry_run" -eq 1 ]; then
-        info "[dry-run] would append an acme font alias to $BASHRC"
+        info "[dry-run] would write $BIN_DIR/nine"
         return
     fi
-    printf '\n# acme font (added by nine)\nalias acme='\''acme -f "$PLAN9/font/pelm/unicode.8.font"'\''\n' >>"$BASHRC"
-    info "added acme font alias to $BASHRC"
+    cat >"$BIN_DIR/nine" <<'EOF'
+#!/bin/sh
+# nine -- launch Acme, preferring a modern host font via fontsrv,
+# falling back to a built-in monospace (added by nine)
+set -eu
+
+FONT_MNT="$HOME/lib/font"
+FALLBACK="$PLAN9/font/pelm/unicode.8.font"
+SIZE=10a
+missing=""
+
+mounted() { mountpoint -q "$FONT_MNT" 2>/dev/null; }
+
+if ! mounted; then
+    mkdir -p "$FONT_MNT"
+    fontsrv -m "$FONT_MNT" &
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        mounted && break
+        sleep 0.3
+    done
+fi
+
+if mounted; then
+    # 1: a specific modern font, if fontsrv exposes it
+    if [ -e "$FONT_MNT/CascadiaMono-Roman/$SIZE/font" ]; then
+        exec acme -f "$FONT_MNT/CascadiaMono-Roman/$SIZE/font" "$@"
+    fi
+    missing="$missing fonts-cascadia-code"
+
+    # 2: whatever the system calls "monospace", if we can resolve and find it
+    if command -v fc-match >/dev/null 2>&1; then
+        family=$(fc-match monospace -f '%{family}' 2>/dev/null | tr -d ' ')
+        if [ -n "$family" ] && [ -e "$FONT_MNT/$family/$SIZE/font" ]; then
+            echo "nine: CascadiaMono-Roman not found, using $family instead (sudo apt install fonts-cascadia-code for it)" >&2
+            exec acme -f "$FONT_MNT/$family/$SIZE/font" "$@"
+        fi
+    else
+        missing="$missing fontconfig"
+    fi
+else
+    missing="$missing fuse3"
+fi
+
+# 3: always works
+if [ -n "$missing" ]; then
+    printf 'nine: using the built-in font. For a nicer one, try:\n\n    sudo apt install %s\n\n' "${missing# }" >&2
+fi
+exec acme -f "$FALLBACK" "$@"
+EOF
+    chmod +x "$BIN_DIR/nine"
+    info "wrote $BIN_DIR/nine"
 }
 
 usage() {
@@ -173,9 +221,10 @@ main() {
     link_bins
     ensure_path
     msg "font (optional, see README)"
-    ensure_bashrc
+    ensure_launcher
     msg ""
     msg "done. start Acme with:  acme &"
+    msg "  (or:  nine &  -- same, with a nicer font; see README)"
     msg "first thing inside: type 'Newcol', select it, click it with the MIDDLE button."
 }
 
