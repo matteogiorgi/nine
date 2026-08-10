@@ -150,7 +150,17 @@ set -eu
 
 NS=$("$PLAN9/bin/namespace")
 
-if [ -e "$NS/acme" ]; then
+# a dead acme can leave its socket file behind without unlinking it;
+# a mere -e check would treat that stale file as "still running" and
+# never get past this block, so actually try to reach it -- a stale
+# socket doesn't always refuse the connection outright, it can hang
+# instead, so this needs a hard timeout rather than trusting 9p to
+# fail fast
+acme_running() {
+    [ -e "$NS/acme" ] && timeout 2 "$PLAN9/bin/9p" read acme/index >/dev/null 2>&1
+}
+
+if acme_running; then
     if [ $# -eq 0 ]; then
         echo "nine: acme is already running" >&2
         exit 0
