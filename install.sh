@@ -144,8 +144,47 @@ ensure_launcher() {
     cat >"$BIN_DIR/nine" <<'EOF'
 #!/bin/sh
 # nine -- launch Acme, preferring a modern host font via fontsrv,
-# falling back to a built-in monospace (added by nine)
+# falling back to a built-in monospace; hands files to an already-running
+# instance via plumb instead of failing to start a second one (added by nine)
 set -eu
+
+NS=$("$PLAN9/bin/namespace")
+
+if [ -e "$NS/acme" ]; then
+    if [ $# -eq 0 ]; then
+        echo "nine: acme is already running" >&2
+        exit 0
+    fi
+
+    send() {
+        case "$1" in
+            /*) abs="$1" ;;
+            *) abs="$PWD/$1" ;;
+        esac
+        plumb -s B -d edit "$abs"
+    }
+
+    if [ -e "$NS/plumb" ]; then
+        for f in "$@"; do
+            send "$f"
+        done
+    else
+        "$PLAN9/bin/plumber" &
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+            [ -e "$NS/plumb" ] && break
+            sleep 0.3
+        done
+        # acme reconnects to a freshly (re)started plumber on its own
+        # fixed 2-second retry loop; sending before that lands finds
+        # no listener on "edit", so plumber's default rule launches a
+        # *second* acme instead -- give the loop a full cycle first
+        sleep 2.5
+        for f in "$@"; do
+            send "$f"
+        done
+    fi
+    exit 0
+fi
 
 FONT_MNT="$HOME/lib/font"
 FALLBACK="$PLAN9/font/pelm/unicode.8.font"

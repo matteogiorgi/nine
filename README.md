@@ -158,8 +158,47 @@ Check that `ls` first — names come out styled, not just by family: that's why 
 ```sh
 #!/bin/sh
 # nine -- launch Acme, preferring a modern host font via fontsrv,
-# falling back to a built-in monospace (added by nine)
+# falling back to a built-in monospace; hands files to an already-running
+# instance via plumb instead of failing to start a second one (added by nine)
 set -eu
+
+NS=$("$PLAN9/bin/namespace")
+
+if [ -e "$NS/acme" ]; then
+    if [ $# -eq 0 ]; then
+        echo "nine: acme is already running" >&2
+        exit 0
+    fi
+
+    send() {
+        case "$1" in
+            /*) abs="$1" ;;
+            *) abs="$PWD/$1" ;;
+        esac
+        plumb -s B -d edit "$abs"
+    }
+
+    if [ -e "$NS/plumb" ]; then
+        for f in "$@"; do
+            send "$f"
+        done
+    else
+        "$PLAN9/bin/plumber" &
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+            [ -e "$NS/plumb" ] && break
+            sleep 0.3
+        done
+        # acme reconnects to a freshly (re)started plumber on its own
+        # fixed 2-second retry loop; sending before that lands finds
+        # no listener on "edit", so plumber's default rule launches a
+        # *second* acme instead -- give the loop a full cycle first
+        sleep 2.5
+        for f in "$@"; do
+            send "$f"
+        done
+    fi
+    exit 0
+fi
 
 FONT_MNT="$HOME/lib/font"
 FALLBACK="$PLAN9/font/pelm/unicode.8.font"
@@ -205,7 +244,11 @@ fi
 exec acme -f "$FALLBACK" "$@"
 ```
 
-On first run it checks whether `$HOME/lib/font` is already mounted and, if not, mounts `fontsrv` there (waiting for the mount rather than racing `acme` against it — if it never mounts, that's FUSE not working, see above). Then it tries, in order:
+On every run it first checks whether Acme is already running, via `$NS/acme` (`$NS` from `namespace`, a plan9port command that isn't itself symlinked — `nine` calls it by its full `$PLAN9/bin` path). Acme posts itself as a single named service, so a second instance always fails to start with `acme: can't post service` — a second `acme` was never the way to open more things anyway. If it's already running and you passed no files, `nine` just says so and exits. If you passed files, it hands them to the running instance instead of trying (and failing) to start a new one, via `plumb -s B -d edit` — the same mechanism plan9port's own `B` command uses, built entirely on `plumb` from step 4.
+
+The one thing that needs a moment: `plumb`'s own daemon, `plumber` (also not symlinked — same full-`$PLAN9/bin`-path treatment as `namespace`), isn't started by anything else in this repo, so `nine` starts it lazily, the first time a running Acme needs to receive a file. Acme reconnects to a freshly-started `plumber` on its own fixed 2-second retry loop — the source (`cmd/acme/look.c`) says so directly: *"Loop so that if plumber is restarted, acme need not be."* Send before that reconnect lands, and `plumber`'s default rule launches a **second** Acme instead of delivering to the first, which is the exact failure this is meant to avoid — so `nine` waits out a full cycle before sending. That wait (a few seconds) only happens once per session, the first time you hand a file to an already-running Acme; `plumber` then keeps running, and every later handoff is instant.
+
+If Acme *isn't* already running, `nine` checks whether `$HOME/lib/font` is already mounted and, if not, mounts `fontsrv` there (waiting for the mount rather than racing `acme` against it — if it never mounts, that's FUSE not working, see above). Then it tries, in order:
 
 1. `CascadiaMono-Roman` specifically — needs the `fonts-cascadia-code` package.
 2. Failing that, whatever `fc-match` says your system's generic `monospace` resolves to, if that lookup is available (needs `fontconfig`, see above) and `fontsrv` exposes a font under that exact name.
@@ -219,7 +262,7 @@ nine &
 
 Edit `~/.local/bin/nine` to change the font, the size, or the fallback — `nine` writes the file once and never overwrites an existing one, so your edits stick.
 
-**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
+**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default; and since `nine` handles an already-running Acme (above), opening a file this way while Acme is already open hands it to that instance instead of failing. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
 
 ```
 [Desktop Entry]
