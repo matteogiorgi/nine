@@ -18,7 +18,7 @@ Third companion to [`ULPE`](https://github.com/matteogiorgi/ulpe) (a UNIX-like t
 
 ## Before you start: two hard prerequisites
 
-1. **A graphical display (X11).** Acme is a GUI program, not a terminal editor. Locally that is your X session; over the network it is `ssh -X your-debian-host`. If what you actually want is a *terminal-only* structural editor from the same family, use `sam` in command mode (`9 sam -d`) instead — it shares the philosophy and needs no display.
+1. **A graphical display (X11).** Acme is a GUI program, not a terminal editor. Locally that is your X session; over the network it is `ssh -X your-debian-host`. If what you actually want is a *terminal-only* structural editor from the same family, use `sam` in command mode (`sam -d`) instead — it shares the philosophy and needs no display.
 
 2. **A real three-button mouse.** Acme's entire model is mouse chording:
    - **left** selects,
@@ -74,15 +74,16 @@ plan9port ships ~150 binaries in `$PLAN9/bin`, and many of them **shadow GNU too
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-for b in 9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse; do
+for b in 9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse samterm; do
     ln -sf "$PLAN9/bin/$b" "$HOME/.local/bin/$b"
 done
 ```
 
-Three of those you never type yourself — they are internal helpers other plan9port programs exec by bare name, which resolves through `$PATH`, and since this repo deliberately keeps `$PLAN9/bin` off `PATH`, they have to be symlinked here too, purely so that search succeeds:
+Four of those you never type yourself — they are internal helpers other plan9port programs exec by bare name, which resolves through `$PATH`, and since this repo deliberately keeps `$PLAN9/bin` off `PATH`, they have to be symlinked here too, purely so that search succeeds:
 
 - `9pserve` and `devdraw` are needed for Acme to start at all. Skip either and it fails at startup — without `devdraw`: `exec devdraw: No such file or directory` followed by `can't open display: muxrpc: unexpected eof`; without `9pserve`: it draws its window, then `exec 9pserve: No such file or directory` followed by `can't post service: 9pserve failed`.
 - `9pfuse` is only needed for the optional host-font route in the Fonts section below — it mounts `fontsrv`'s output through FUSE. Baseline Acme never touches it.
+- `samterm` is needed only for `sam`'s GUI mode — running bare `sam` execs it the same way Acme execs `devdraw`. Skip it and you get `can't exec samterm: No such file or directory`. Command-mode `sam -d` (the way this repo actually recommends using it, see "Before you start") never touches it.
 
 On Debian, `~/.profile` already prepends `~/.local/bin` to `PATH` when that directory exists, so there is usually nothing else to do. Verify with `echo $PATH`; if `~/.local/bin` is missing from it, add it yourself:
 
@@ -244,6 +245,7 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/9pserve \
       "$HOME"/.local/bin/devdraw \
       "$HOME"/.local/bin/9pfuse \
+      "$HOME"/.local/bin/samterm \
       "$HOME"/.local/bin/nine
 # then remove the blocks marked "(added by nine)"
 # from ~/.profile

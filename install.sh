@@ -10,7 +10,7 @@ BIN_DIR="$HOME/.local/bin"
 PROFILE="$HOME/.profile"
 REPO="https://github.com/9fans/plan9port"
 DEPS="gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev"
-LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse"
+LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse samterm"
 
 dry_run=0
 
