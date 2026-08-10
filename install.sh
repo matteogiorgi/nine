@@ -148,6 +148,13 @@ ensure_launcher() {
 # instance via plumb instead of failing to start a second one (added by nine)
 set -eu
 
+# $PLAN9 is only exported from ~/.profile, which login shells read and
+# plenty of terminals/desktop launchers don't count as -- acme itself
+# tolerates that and falls back to a built-in font, but this script
+# dereferences $PLAN9 right away, so default it rather than join acme
+# in assuming a login shell got there first
+export PLAN9="${PLAN9:-$HOME/plan9}"
+
 NS=$("$PLAN9/bin/namespace")
 
 # a dead acme can leave its socket file behind without unlinking it;

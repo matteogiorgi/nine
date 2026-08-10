@@ -67,6 +67,8 @@ export PLAN9="$HOME/plan9"
 
 **Why `~/.profile` and not `~/.bashrc`:** this is session-level environment, not an interactive-shell nicety. Placed in `.profile`, it is set once at login and inherited by X programs (so Acme launched over `ssh -X` sees it) and by the tmux server (so every pane sees it). Reserve `.bashrc` for the prompt, aliases, and functions.
 
+That assumes something sources `.profile` at login in the first place — true for a standard X11 session, less certain in things like a ChromeOS Linux container, where a terminal can open a non-login shell that never reads it. `nine` itself doesn't take that for granted (see Fonts).
+
 
 ### 4. Expose the binaries — symlink, do not pollute `PATH`
 
@@ -162,6 +164,13 @@ Check that `ls` first — names come out styled, not just by family: that's why 
 # instance via plumb instead of failing to start a second one (added by nine)
 set -eu
 
+# $PLAN9 is only exported from ~/.profile, which login shells read and
+# plenty of terminals/desktop launchers don't count as -- acme itself
+# tolerates that and falls back to a built-in font, but this script
+# dereferences $PLAN9 right away, so default it rather than join acme
+# in assuming a login shell got there first
+export PLAN9="${PLAN9:-$HOME/plan9}"
+
 NS=$("$PLAN9/bin/namespace")
 
 # a dead acme can leave its socket file behind without unlinking it;
@@ -254,6 +263,8 @@ fi
 exec acme -f "$FALLBACK" "$@"
 ```
 
+Before any of that, it defaults `$PLAN9` to `$HOME/plan9` if it isn't already set. Step 3 explains why the export lives in `~/.profile` rather than `~/.bashrc` — but `~/.profile` is a *login*-shell file, and not every terminal or desktop launcher counts as one; Acme itself tolerates a missing `$PLAN9` and quietly falls back to its own built-in font, but `nine` dereferences `$PLAN9` immediately (for `namespace`, next), so without this default it would fail outright with `PLAN9: parameter not set` instead of degrading gracefully like Acme does.
+
 On every run it first checks whether Acme is already running, via `$NS/acme` (`$NS` from `namespace`, a plan9port command that isn't itself symlinked — `nine` calls it by its full `$PLAN9/bin` path). Acme posts itself as a single named service, so a second instance always fails to start with `acme: can't post service` — a second `acme` was never the way to open more things anyway. That check is more than a file test: closing Acme's window can leave the socket file behind without anything actually listening on it, and a stale socket doesn't always refuse a connection outright — it can just hang. So `nine` tries a real, `timeout`-bounded round trip (`9p read acme/index`, again by full path — same treatment as `namespace`) rather than trusting that a dead socket fails fast; treating a leftover file as "running" would otherwise get you stuck here forever, unable to open Acme at all. If it's genuinely running and you passed no files, `nine` just says so and exits. If you passed files, it hands them to the running instance instead of trying (and failing) to start a new one, via `plumb -s B -d edit` — the same mechanism plan9port's own `B` command uses, built entirely on `plumb` from step 4.
 
 The one thing that needs a moment: `plumb`'s own daemon, `plumber` (also not symlinked — same full-`$PLAN9/bin`-path treatment as `namespace`), isn't started by anything else in this repo, so `nine` starts it lazily, the first time a running Acme needs to receive a file. Acme reconnects to a freshly-started `plumber` on its own fixed 2-second retry loop — the source (`cmd/acme/look.c`) says so directly: *"Loop so that if plumber is restarted, acme need not be."* Send before that reconnect lands, and `plumber`'s default rule launches a **second** Acme instead of delivering to the first, which is the exact failure this is meant to avoid — so `nine` waits out a full cycle before sending. That wait (a few seconds) only happens once per session, the first time you hand a file to an already-running Acme; `plumber` then keeps running, and every later handoff is instant.
@@ -272,7 +283,7 @@ nine &
 
 Edit `~/.local/bin/nine` to change the font, the size, or the fallback — `nine` writes the file once and never overwrites an existing one, so your edits stick.
 
-**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default; and since `nine` handles an already-running Acme (above), opening a file this way while Acme is already open hands it to that instance instead of failing. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
+**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default; and since `nine` handles an already-running Acme (above), opening a file this way while Acme is already open hands it to that instance instead of failing. Desktop launchers are exactly the kind of context that can skip `~/.profile`, which is also why `nine` defaults `$PLAN9` itself rather than trusting it's already set (above) — otherwise this entry would fail every time. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
 
 ```
 [Desktop Entry]
