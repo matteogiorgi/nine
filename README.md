@@ -152,14 +152,14 @@ acme -f "$HOME/lib/font/CascadiaMono-Roman/13a/font" &
 
 Check that `ls` first — names come out styled, not just by family: that's why the example above says `CascadiaMono-Roman`, not `CascadiaMono`.
 
-**Making a font choice permanent.** Acme itself never remembers one — no config file, by design, and `nine` doesn't pick one for you either — the default stays untouched unless you type `-f`. If you want a choice to stick, add the alias yourself, in `~/.bashrc` (never `~/.profile`: this is shell convenience, not environment — see step 3):
+**Making a font choice permanent.** Acme itself never remembers one — no config file, by design. `nine` instead adds a small alias to `~/.bashrc` (never `~/.profile`: this is shell convenience, not environment — see step 3):
 
 ```sh
 # in ~/.bashrc
 alias acme='acme -f "$PLAN9/font/pelm/unicode.8.font"'
 ```
 
-This only overrides the default in interactive shells that source `~/.bashrc` — if something else execs `acme` directly (a window-manager launcher, a script), it won't see the alias.
+This only overrides the default in interactive shells that source `~/.bashrc` — if something else execs `acme` directly (a window-manager launcher, a script), it won't see the alias. Edit or delete the line to change or drop the choice.
 
 
 
@@ -187,7 +187,8 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/9pserve \
       "$HOME"/.local/bin/devdraw \
       "$HOME"/.local/bin/9pfuse
-# then remove the blocks marked "(added by nine)" from ~/.profile
+# then remove the blocks marked "(added by nine)"
+# from ~/.profile and ~/.bashrc
 ```
 
 

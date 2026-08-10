@@ -8,6 +8,7 @@ set -eu
 PLAN9_DIR="$HOME/plan9"
 BIN_DIR="$HOME/.local/bin"
 PROFILE="$HOME/.profile"
+BASHRC="$HOME/.bashrc"
 REPO="https://github.com/9fans/plan9port"
 DEPS="gcc git libx11-dev libxt-dev libxext-dev libfontconfig1-dev"
 LINKS="9 acme sam 9term win fontsrv plumb 9pserve devdraw 9pfuse"
@@ -130,6 +131,20 @@ ensure_path() {
     esac
 }
 
+# ---- font (optional): append an acme alias to $BASHRC once, never duplicate ----
+ensure_bashrc() {
+    if [ -f "$BASHRC" ] && grep -q 'alias acme=' "$BASHRC"; then
+        info "acme alias already present in $BASHRC -- leaving it"
+        return
+    fi
+    if [ "$dry_run" -eq 1 ]; then
+        info "[dry-run] would append an acme font alias to $BASHRC"
+        return
+    fi
+    printf '\n# acme font (added by nine)\nalias acme='\''acme -f "$PLAN9/font/pelm/unicode.8.font"'\''\n' >>"$BASHRC"
+    info "added acme font alias to $BASHRC"
+}
+
 usage() {
     cat <<EOF
 nine -- install Acme (plan9port) on Debian, everything default.
@@ -157,6 +172,8 @@ main() {
     msg "4. binaries and PATH"
     link_bins
     ensure_path
+    msg "font (optional, see README)"
+    ensure_bashrc
     msg ""
     msg "done. start Acme with:  acme &"
     msg "first thing inside: type 'Newcol', select it, click it with the MIDDLE button."
