@@ -77,7 +77,7 @@ main() {
         act rm -f "$BIN_DIR/$b"
     done
     msg "3. desktop entry"
-    act rm -f "$DESKTOP_DIR/nine.desktop"
+    act rm -f "$DESKTOP_DIR/acme.desktop"
     msg "4. environment"
     ensure_profile_clean
     msg ""

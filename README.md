@@ -294,17 +294,16 @@ nine &
 
 Edit `~/.local/bin/nine` to change the font, the size, or the fallback — `nine` writes the file once and never overwrites an existing one, so your edits stick.
 
-**A menu entry, too.** `nine` also writes `~/.local/share/applications/nine.desktop`, pointed at `nine` itself — so an entry shows up in your application menu and "Open With" dialogs, with the same font and single-instance handling as above. It's named `Nine`, since that's what actually runs, not `Acme`; `Comment=` and `Keywords=` still mention Acme by name, so searching for it still finds the entry. The same `$PLAN9` default applies here too — desktop launchers are exactly the kind of non-login context that needs it. (No `MimeType=` is set, so it won't become anything's default — add one yourself if you want that.)
+**A menu entry, too.** `nine` also writes `~/.local/share/applications/acme.desktop`, pointed at `nine` itself — so Acme shows up in your desktop environment's application menu and in "Open With" dialogs, launched with the same font logic, not the raw default; and since `nine` handles an already-running Acme (above), opening a file this way while Acme is already open hands it to that instance instead of failing. Desktop launchers are exactly the kind of context that can skip `~/.profile`, which is also why `nine` defaults `$PLAN9` itself rather than trusting it's already set (above) — otherwise this entry would fail every time. (No `MimeType=` is set, so it won't become the double-click default for any file type — add one yourself if you want that.)
 
 ```
 [Desktop Entry]
 Type=Application
-Name=Nine
-Comment=Acme, the Plan 9 text editor (plan9port)
+Name=Acme
+Comment=Plan 9 text editor (plan9port)
 Exec=/home/you/.local/bin/nine %F
 Terminal=false
 Categories=Utility;TextEditor;
-Keywords=Acme;Plan9;plan9port;
 ```
 
 Note the absolute path in `Exec=`: unlike `~/.profile`, `~/.bashrc`, or `nine` itself, `.desktop` files don't expand `$HOME` or any other variable — `nine` fills it in with the real path when it writes the file. If the entry doesn't show up in your menu right away, reopen the menu or log back in; same idempotent, write-once, never-overwrite rule as everything else `nine` creates.
@@ -337,7 +336,7 @@ rm -f "$HOME"/.local/bin/9 \
       "$HOME"/.local/bin/9pfuse \
       "$HOME"/.local/bin/samterm \
       "$HOME"/.local/bin/nine
-rm -f "$HOME/.local/share/applications/nine.desktop"
+rm -f "$HOME/.local/share/applications/acme.desktop"
 # then remove the blocks marked "(added by nine)" from ~/.profile
 ```
 
