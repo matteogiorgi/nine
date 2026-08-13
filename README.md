@@ -67,7 +67,7 @@ export PLAN9="$HOME/plan9"
 
 **Why `~/.profile` and not `~/.bashrc`:** this is session-level environment, not an interactive-shell nicety. Placed in `.profile`, it is set once at login and inherited by X programs (so Acme launched over `ssh -X` sees it) and by the tmux server (so every pane sees it). Reserve `.bashrc` for the prompt, aliases, and functions.
 
-That assumes something sources `.profile` at login in the first place — true for a standard X11 session, less certain in things like a ChromeOS Linux container, where a terminal can open a non-login shell that never reads it. `nine` itself doesn't take that for granted (see Fonts).
+That assumes something sources `.profile` at login in the first place — true for a standard X11 session, less certain in things like a ChromeOS Linux container, where a terminal can open a non-login shell that never reads it. `nine` itself doesn't take that for granted (see The `nine` launcher, below).
 
 
 ### 4. Expose the binaries — symlink, do not pollute `PATH`
@@ -155,7 +155,14 @@ acme -f "$HOME/lib/font/CascadiaMono-Roman/10a/font" &
 
 Check that `ls` first — names come out styled, not just by family: that's why the example above says `CascadiaMono-Roman`, not `CascadiaMono`. If it isn't there at all, Cascadia itself is missing — `sudo apt install fonts-cascadia-code`; any other monospace TrueType font works the same way.
 
-**Making a font choice permanent.** Acme itself never remembers one — no config file, by design. `nine` instead writes a small launcher — also named `nine`, distinct from the `9` wrapper from step 4 despite the similar name — to `~/.local/bin/` (not an alias, so it works no matter what invokes it, not just interactive shells that source `~/.bashrc`):
+Both of the above are one-off — pick a font, type it after `-f`, done. To make a choice stick, and pick up a few conveniences that have nothing to do with fonts along the way, see the `nine` launcher, next.
+
+
+
+
+## The `nine` launcher (optional)
+
+`install.sh` already wrote `~/.local/bin/nine` for you, in the "extras" step — a single script that replaces `acme &` for daily use. It picks up the font ideas from above, plus a couple of things that don't belong under "Fonts" at all but needed a home somewhere. Here it is, front to back:
 
 ```sh
 #!/bin/sh
@@ -263,16 +270,16 @@ fi
 exec acme -f "$FALLBACK" "$@"
 ```
 
-Before any of that, it defaults `$PLAN9` to `$HOME/plan9` if it isn't already set. Step 3 explains why the export lives in `~/.profile` rather than `~/.bashrc` — but `~/.profile` is a *login*-shell file, and not every terminal or desktop launcher counts as one; Acme itself tolerates a missing `$PLAN9` and quietly falls back to its own built-in font, but `nine` dereferences `$PLAN9` immediately (for `namespace`, next), so without this default it would fail outright with `PLAN9: parameter not set` instead of degrading gracefully like Acme does.
+**Environment, defensively.** Before any of that, it defaults `$PLAN9` to `$HOME/plan9` if it isn't already set. Step 3 explains why the export lives in `~/.profile` rather than `~/.bashrc` — but `~/.profile` is a *login*-shell file, and not every terminal or desktop launcher counts as one; Acme itself tolerates a missing `$PLAN9` and quietly falls back to its own built-in font, but `nine` dereferences `$PLAN9` immediately (for `namespace`, next), so without this default it would fail outright with `PLAN9: parameter not set` instead of degrading gracefully like Acme does.
 
-On every run it first checks whether Acme is already running, via `$NS/acme` (`$NS` from `namespace`, a plan9port command that isn't itself symlinked — `nine` calls it by its full `$PLAN9/bin` path). Acme posts itself as a single named service, so a second instance always fails to start with `acme: can't post service` — a second `acme` was never the way to open more things anyway. That check is more than a file test: closing Acme's window can leave the socket file behind without anything actually listening on it, and a stale socket doesn't always refuse a connection outright — it can just hang. So `nine` tries a real, `timeout`-bounded round trip (`9p read acme/index`, again by full path — same treatment as `namespace`) rather than trusting that a dead socket fails fast; treating a leftover file as "running" would otherwise get you stuck here forever, unable to open Acme at all. If it's genuinely running and you passed no files, `nine` just says so and exits. If you passed files, it hands them to the running instance instead of trying (and failing) to start a new one, via `plumb -s B -d edit` — the same mechanism plan9port's own `B` command uses, built entirely on `plumb` from step 4.
+**One Acme, always.** On every run it first checks whether Acme is already running, via `$NS/acme` (`$NS` from `namespace`, a plan9port command that isn't itself symlinked — `nine` calls it by its full `$PLAN9/bin` path). Acme posts itself as a single named service, so a second instance always fails to start with `acme: can't post service` — a second `acme` was never the way to open more things anyway. That check is more than a file test: closing Acme's window can leave the socket file behind without anything actually listening on it, and a stale socket doesn't always refuse a connection outright — it can just hang. So `nine` tries a real, `timeout`-bounded round trip (`9p read acme/index`, again by full path — same treatment as `namespace`) rather than trusting that a dead socket fails fast; treating a leftover file as "running" would otherwise get you stuck here forever, unable to open Acme at all. If it's genuinely running and you passed no files, `nine` just says so and exits. If you passed files, it hands them to the running instance instead of trying (and failing) to start a new one, via `plumb -s B -d edit` — the same mechanism plan9port's own `B` command uses, built entirely on `plumb` from step 4.
 
 The one thing that needs a moment: `plumb`'s own daemon, `plumber` (also not symlinked — same full-`$PLAN9/bin`-path treatment as `namespace`), isn't started by anything else in this repo, so `nine` starts it lazily, the first time a running Acme needs to receive a file. Acme reconnects to a freshly-started `plumber` on its own fixed 2-second retry loop — the source (`cmd/acme/look.c`) says so directly: *"Loop so that if plumber is restarted, acme need not be."* Send before that reconnect lands, and `plumber`'s default rule launches a **second** Acme instead of delivering to the first, which is the exact failure this is meant to avoid — so `nine` waits out a full cycle before sending. That wait (a few seconds) only happens once per session, the first time you hand a file to an already-running Acme; `plumber` then keeps running, and every later handoff is instant.
 
-If Acme *isn't* already running, `nine` checks whether `$HOME/lib/font` is already mounted and, if not, mounts `fontsrv` there (waiting for the mount rather than racing `acme` against it — if it never mounts, that's FUSE not working, see above). Then it tries, in order:
+**Then, whichever font wins.** If Acme *isn't* already running, `nine` checks whether `$HOME/lib/font` is already mounted and, if not, mounts `fontsrv` there (waiting for the mount rather than racing `acme` against it — if it never mounts, that's FUSE not working — see the fontsrv notes in Fonts, above). Then it tries, in order:
 
 1. `CascadiaMono-Roman` specifically — needs the `fonts-cascadia-code` package.
-2. Failing that, whatever `fc-match` says your system's generic `monospace` resolves to, if that lookup is available (needs `fontconfig`, see above) and `fontsrv` exposes a font under that exact name.
+2. Failing that, whatever `fc-match` says your system's generic `monospace` resolves to, if that lookup is available (needs `fontconfig`, see Fonts above) and `fontsrv` exposes a font under that exact name.
 3. Failing that too, the built-in `pelm/unicode.8.font`, which needs nothing beyond plan9port itself and therefore never fails.
 
 Whenever it lands on anything but its first choice, it says so on stderr — and where relevant, exactly what to `apt install`, batched into one line the same way step 1 reports missing build dependencies. On later runs, since the mount is already there, it skips straight to these checks. Launch it in place of `acme`:
