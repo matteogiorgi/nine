@@ -282,7 +282,11 @@ The one thing that needs a moment: `plumb`'s own daemon, `plumber` (also not sym
 2. Failing that, whatever `fc-match` says your system's generic `monospace` resolves to, if that lookup is available (needs `fontconfig`, see Fonts above) and `fontsrv` exposes a font under that exact name.
 3. Failing that too, the built-in `pelm/unicode.8.font`, which needs nothing beyond plan9port itself and therefore never fails.
 
-Whenever it lands on anything but its first choice, it says so on stderr — and where relevant, exactly what to `apt install`, batched into one line the same way step 1 reports missing build dependencies. On later runs, since the mount is already there, it skips straight to these checks. Launch it in place of `acme`:
+Whenever it lands on anything but its first choice, it says so on stderr — and where relevant, exactly what to `apt install`, batched into one line the same way step 1 reports missing build dependencies. On later runs, since the mount is already there, it skips straight to these checks.
+
+`fontsrv` is never killed, on purpose — same reasoning as `plumber` above. It's backgrounded *before* the final `exec acme ...` replaces `nine`'s own process, so it just keeps running, orphaned, once Acme exits too. Tearing it down would mean remounting (and waiting out the mount) on every single launch instead of only the very first one — and if another Acme window is still lazily pulling in glyphs through that mount when it dies, rendering breaks under it. `pkill fontsrv` yourself if you ever want it gone; `nine` will simply remount it next time it's needed.
+
+Launch it in place of `acme`:
 
 ```sh
 nine &
