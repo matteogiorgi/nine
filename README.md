@@ -309,7 +309,7 @@ Only the dependency names change; steps 2–5 are identical. The `apt` list in s
 
 ## Uninstall
 
-`nine` hides nothing, so removal is complete and obvious:
+`nine` hides nothing, so removal is complete and obvious. `./uninstall.sh` does exactly this (same `--dry-run` as `install.sh`) — it lives in this repo, so it's only there for as long as you keep your clone around. By hand:
 
 ```sh
 rm -rf "$HOME/plan9"
