@@ -254,25 +254,26 @@ EOF
 # unquoted heredoc, unlike ensure_launcher's: .desktop files don't expand
 # variables, so $BIN_DIR must be resolved to a literal path right now.
 ensure_desktop() {
-    if [ -f "$DESKTOP_DIR/acme.desktop" ]; then
-        info "acme.desktop already present in $DESKTOP_DIR -- leaving it"
+    if [ -f "$DESKTOP_DIR/nine.desktop" ]; then
+        info "nine.desktop already present in $DESKTOP_DIR -- leaving it"
         return
     fi
     if [ "$dry_run" -eq 1 ]; then
-        info "[dry-run] would write $DESKTOP_DIR/acme.desktop"
+        info "[dry-run] would write $DESKTOP_DIR/nine.desktop"
         return
     fi
     mkdir -p "$DESKTOP_DIR"
-    cat >"$DESKTOP_DIR/acme.desktop" <<EOF
+    cat >"$DESKTOP_DIR/nine.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Acme
-Comment=Plan 9 text editor (plan9port)
+Name=Nine
+Comment=Acme, the Plan 9 text editor (plan9port)
 Exec=$BIN_DIR/nine %F
 Terminal=false
 Categories=Utility;TextEditor;
+Keywords=Acme;Plan9;plan9port;
 EOF
-    info "wrote $DESKTOP_DIR/acme.desktop"
+    info "wrote $DESKTOP_DIR/nine.desktop"
 }
 
 usage() {
