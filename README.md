@@ -162,7 +162,7 @@ Both of the above are one-off — pick a font, type it after `-f`, done. To make
 
 ## The `nine` launcher (optional)
 
-`install.sh` already wrote `~/.local/bin/nine` for you, in the "extras" step — a single script that replaces `acme &` for daily use. It picks up the font ideas from above, plus a couple of things that don't belong under "Fonts" at all but needed a home somewhere. Here it is, front to back:
+[`install.sh`](https://github.com/matteogiorgi/nine/blob/main/install.sh) already wrote `~/.local/bin/nine` for you, in the "extras" step — a single script that replaces `acme &` for daily use. It picks up the font ideas from above, plus a couple of things that don't belong under "Fonts" at all but needed a home somewhere. Here it is, front to back:
 
 ```sh
 #!/bin/sh
@@ -321,7 +321,7 @@ Only the dependency names change; steps 2–5 are identical. The `apt` list in s
 
 ## Uninstall
 
-`nine` hides nothing, so removal is complete and obvious. `./uninstall.sh` does exactly this (same `--dry-run` as `install.sh`) — it lives in this repo, so it's only there for as long as you keep your clone around. By hand:
+`nine` hides nothing, so removal is complete and obvious. [`./uninstall.sh`](https://github.com/matteogiorgi/nine/blob/main/uninstall.sh) does exactly this (same `--dry-run` as `install.sh`) — it lives in this repo, so it's only there for as long as you keep your clone around. By hand:
 
 ```sh
 rm -rf "$HOME/plan9"
